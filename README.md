@@ -92,10 +92,22 @@ python training/train_xgb.py --sample 0.1 --with-coords
 python training/evaluate.py model/20231215_143000 --sample 0.1
 ```
 
+### Run API Server
+```bash
+# Start the Flask API (automatically loads latest model)
+python api/app.py
+
+# API will be available at http://localhost:5000
+# See api/README.md for endpoint documentation
+```
+
 ## Project Structure
 
 ```
-├── api/                  # API for serving predictions
+├── api/
+│   ├── app.py           # Flask REST API
+│   ├── test_api.py      # API test script
+│   └── README.md        # API documentation
 ├── config/
 │   └── db.yaml          # Database configuration
 ├── data/
@@ -104,10 +116,10 @@ python training/evaluate.py model/20231215_143000 --sample 0.1
 ├── features/
 │   ├── feature_pipeline.py  # Feature engineering
 │   └── build_features.sql   # SQL for materialized views
-├── model/               # Saved models
+├── model/               # Saved trained models
 ├── notebooks/           # Jupyter notebooks
 └── training/
-    ├── train_xgb.py     # Training script
+    ├── train_xgb.py     # XGBoost training script
     └── evaluate.py      # Evaluation utilities
 ```
 
