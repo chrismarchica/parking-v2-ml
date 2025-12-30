@@ -8,6 +8,10 @@ from typing import Generator, Optional
 import yaml
 import psycopg2
 from psycopg2 import pool
+from dotenv import load_dotenv
+
+# Load .env from project root if it exists
+load_dotenv(Path(__file__).parent.parent / ".env")
 
 
 class DatabaseConnection:
@@ -26,24 +30,34 @@ class DatabaseConnection:
         self.config = self._load_config(config_path)
         self._pool: Optional[pool.ThreadedConnectionPool] = None
 
+    # Default values for local development
+    DEFAULTS = {
+        "DB_HOST": "localhost",
+        "DB_PORT": "5433",
+        "DB_NAME": "parking",
+    }
+
     def _load_config(self, config_path: str | Path) -> dict:
         """Load and parse database configuration."""
         with open(config_path, "r") as f:
             config = yaml.safe_load(f)
 
-        # Resolve environment variables
+        # Resolve all environment variables in database config
         db_config = config["database"]
-        db_config["user"] = self._resolve_env_var(db_config["user"])
-        db_config["password"] = self._resolve_env_var(db_config["password"])
+        for key in db_config:
+            db_config[key] = self._resolve_env_var(db_config[key])
 
         return config
 
-    def _resolve_env_var(self, value: str) -> str:
+    def _resolve_env_var(self, value: str, required: bool = False) -> str:
         """Resolve ${VAR_NAME} style environment variables."""
         if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
             env_var = value[2:-1]
             resolved = os.environ.get(env_var)
             if resolved is None:
+                # Check for default
+                if env_var in self.DEFAULTS:
+                    return self.DEFAULTS[env_var]
                 raise ValueError(f"Environment variable {env_var} not set")
             return resolved
         return value

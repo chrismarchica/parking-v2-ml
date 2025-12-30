@@ -1,1 +1,26 @@
-venv
+# Virtual environment
+venv/
+
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model artifacts (large files)
+model/*/model.json
+model/*/metadata.pkl
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

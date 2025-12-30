@@ -49,14 +49,18 @@ class ParkingTicketModel:
         cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
 
         for col in cat_cols:
+            # Convert to string first (handles categorical dtypes)
+            X_encoded[col] = X_encoded[col].astype(str).replace("nan", "UNKNOWN")
+            
             if col not in self.label_encoders:
                 self.label_encoders[col] = LabelEncoder()
-                # Handle unseen categories by adding "UNKNOWN"
-                X_encoded[col] = X_encoded[col].fillna("UNKNOWN").astype(str)
-                self.label_encoders[col].fit(X_encoded[col])
-
-            X_encoded[col] = X_encoded[col].fillna("UNKNOWN").astype(str)
-            # Handle unseen labels
+                # Fit on data, ensuring UNKNOWN is always included
+                unique_vals = X_encoded[col].unique().tolist()
+                if "UNKNOWN" not in unique_vals:
+                    unique_vals.append("UNKNOWN")
+                self.label_encoders[col].fit(unique_vals)
+            
+            # Handle unseen labels by mapping to UNKNOWN
             known_labels = set(self.label_encoders[col].classes_)
             X_encoded[col] = X_encoded[col].apply(
                 lambda x: x if x in known_labels else "UNKNOWN"
@@ -213,7 +217,19 @@ def run_training(
     print("\n[2/5] Preparing features...")
     X, y = pipeline.prepare_for_training(df, target="violation_code")
     print(f"      Features: {X.shape[1]}, Samples: {X.shape[0]:,}")
-    print(f"      Target classes: {y.nunique()}")
+    print(f"      Target classes (before filtering): {y.nunique()}")
+
+    # Filter out rare classes (need at least 10 samples for stratified split)
+    class_counts = y.value_counts()
+    valid_classes = class_counts[class_counts >= 10].index
+    mask = y.isin(valid_classes)
+    X = X[mask]
+    y = y[mask]
+    
+    removed = len(mask) - mask.sum()
+    if removed > 0:
+        print(f"      Removed {removed:,} samples from rare classes (< 10 samples)")
+    print(f"      Final samples: {X.shape[0]:,}, Target classes: {y.nunique()}")
 
     # Split data
     print("\n[3/5] Splitting data...")

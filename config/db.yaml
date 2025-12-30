@@ -1,7 +1,7 @@
 database:
-  host: localhost
-  port: 5433
-  name: parking
+  host: ${DB_HOST}
+  port: ${DB_PORT}
+  name: ${DB_NAME}
   user: ${DB_USER}
   password: ${DB_PASSWORD}
 
@@ -14,4 +14,3 @@ pool:
 query:
   chunk_size: 50000
   timeout_seconds: 300
-

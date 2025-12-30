@@ -11,15 +11,20 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Set database credentials:
-```bash
-export DB_USER=your_username
-export DB_PASSWORD=your_password
+2. Create `.env` file with database credentials:
 ```
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=parking
+DB_USER=your_username
+DB_PASSWORD=your_password
+```
+
+For local development, only `DB_USER` and `DB_PASSWORD` are required—the others default to `localhost:5433/parking`.
 
 ## Database
 
-The project connects to PostgreSQL on `localhost:5433` with a `parking_ticket` table:
+The project expects a `parking_ticket` table:
 
 ```sql
 CREATE TABLE parking_ticket (
