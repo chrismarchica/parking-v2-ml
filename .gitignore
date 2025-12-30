@@ -15,8 +15,9 @@ build/
 .ipynb_checkpoints/
 
 # Model artifacts (large files)
-model/*/model.json
-model/*/metadata.pkl
+model/*/model.pkl
+model/*/*.json
+model/*/*.pkl
 
 # IDE
 .vscode/

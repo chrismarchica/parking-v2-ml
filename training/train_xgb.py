@@ -147,34 +147,30 @@ class ParkingTicketModel:
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
 
-        # Save XGBoost model
-        self.model.save_model(path / "model.json")
-
-        # Save encoders and metadata
-        metadata = {
+        # Save entire model with pickle (simpler and more reliable)
+        model_data = {
+            "model": self.model,
             "label_encoders": self.label_encoders,
             "feature_columns": self.feature_columns,
             "target": self.target,
         }
-        with open(path / "metadata.pkl", "wb") as f:
-            pickle.dump(metadata, f)
+        
+        with open(path / "model.pkl", "wb") as f:
+            pickle.dump(model_data, f)
 
     @classmethod
     def load(cls, path: str) -> "ParkingTicketModel":
         """Load model from disk."""
         path = Path(path)
 
-        # Load metadata
-        with open(path / "metadata.pkl", "rb") as f:
-            metadata = pickle.load(f)
+        # Load pickled model
+        with open(path / "model.pkl", "rb") as f:
+            model_data = pickle.load(f)
 
-        instance = cls(target=metadata["target"])
-        instance.label_encoders = metadata["label_encoders"]
-        instance.feature_columns = metadata["feature_columns"]
-
-        # Load XGBoost model
-        instance.model = xgb.XGBClassifier()
-        instance.model.load_model(path / "model.json")
+        instance = cls(target=model_data["target"])
+        instance.model = model_data["model"]
+        instance.label_encoders = model_data["label_encoders"]
+        instance.feature_columns = model_data["feature_columns"]
 
         return instance
 
