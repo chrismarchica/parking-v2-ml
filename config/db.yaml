@@ -1,0 +1,17 @@
+database:
+  host: localhost
+  port: 5433
+  name: parking
+  user: ${DB_USER}
+  password: ${DB_PASSWORD}
+
+# Connection pool settings
+pool:
+  min_connections: 1
+  max_connections: 10
+
+# Query settings
+query:
+  chunk_size: 50000
+  timeout_seconds: 300
+
