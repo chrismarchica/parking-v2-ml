@@ -170,11 +170,21 @@ class FeaturePipeline:
         ).astype(int)
 
         if has_coordinates:
+            # Convert latitude/longitude to numeric, handling any nulls
+            df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
+            df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+            
             # Discretize lat/lon into grid cells (roughly 0.005 deg ≈ 500m)
-            df["lat_grid"] = (df["latitude"] * 200).round() / 200
-            df["lon_grid"] = (df["longitude"] * 200).round() / 200
-            df["location_cell"] = (
-                df["lat_grid"].astype(str) + "_" + df["lon_grid"].astype(str)
+            # Only calculate for rows with valid coordinates
+            valid_coords = df["latitude"].notna() & df["longitude"].notna()
+            df.loc[valid_coords, "lat_grid"] = (df.loc[valid_coords, "latitude"] * 200).round() / 200
+            df.loc[valid_coords, "lon_grid"] = (df.loc[valid_coords, "longitude"] * 200).round() / 200
+            
+            # Create location cell identifier (only for valid coordinates)
+            df["location_cell"] = None
+            df.loc[valid_coords, "location_cell"] = (
+                df.loc[valid_coords, "lat_grid"].astype(str) + "_" + 
+                df.loc[valid_coords, "lon_grid"].astype(str)
             )
 
         return df
