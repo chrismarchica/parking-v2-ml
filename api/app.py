@@ -231,7 +231,7 @@ def heatmap_data():
         limit = int(request.args.get('limit', 1000))
         
         # Build WHERE clause
-        conditions = []
+        conditions = ["geom IS NOT NULL"]
         params = []
         
         if start_date:
@@ -248,6 +248,16 @@ def heatmap_data():
         
         where_clause = " AND ".join(conditions) if conditions else None
         
+        # First, check if we have any data with geom
+        with data_loader.db.get_cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM parking_ticket WHERE geom IS NOT NULL")
+            geom_count = cursor.fetchone()[0]
+            print(f"DEBUG: Found {geom_count} rows with geom data")
+            
+            cursor.execute("SELECT COUNT(*) FROM parking_ticket")
+            total_count = cursor.fetchone()[0]
+            print(f"DEBUG: Total rows in table: {total_count}")
+        
         # Query with coordinates
         df = data_loader.load_data_with_coordinates(
             columns=["summons_number", "issue_date", "violation_code", "precinct"],
@@ -256,8 +266,13 @@ def heatmap_data():
             params=tuple(params) if params else None
         )
         
+        print(f"DEBUG: Query returned {len(df)} rows")
+        
         # Format for frontend
-        points = df[['latitude', 'longitude', 'violation_code']].to_dict(orient='records')
+        if len(df) > 0:
+            points = df[['latitude', 'longitude', 'violation_code']].to_dict(orient='records')
+        else:
+            points = []
         
         return jsonify({
             "points": points,
@@ -266,10 +281,17 @@ def heatmap_data():
                 "start_date": start_date,
                 "end_date": end_date,
                 "violation_code": violation_code
+            },
+            "debug": {
+                "total_rows_in_table": total_count,
+                "rows_with_geom": geom_count
             }
         })
         
     except Exception as e:
+        import traceback
+        print(f"ERROR: {str(e)}")
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 
