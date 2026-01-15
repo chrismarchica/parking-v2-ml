@@ -28,8 +28,10 @@ COPY config/ ./config/
 COPY data/ ./data/
 COPY features/ ./features/
 COPY training/ ./training/
-COPY model/ ./model/
 COPY gunicorn.conf.py .
+
+# Create empty model directory (load model from GCS or mount at runtime)
+RUN mkdir -p ./model
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser && \
