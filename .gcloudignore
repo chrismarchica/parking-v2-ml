@@ -1,0 +1,55 @@
+# Cloud Build ignore file (overrides .gitignore for gcloud builds)
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Notebooks (not needed for API)
+notebooks/
+
+# Test files
+**/test_*.py
+**/*_test.py
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# NOTE: model/ is NOT excluded here so it gets uploaded to Cloud Build
