@@ -1,0 +1,55 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Notebooks (not needed for API)
+notebooks/
+
+# Test files
+**/test_*.py
+**/*_test.py
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation
+*.md
+docs/
+
+# Environment files (secrets handled via Cloud Run env vars)
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -315,13 +315,37 @@ def model_info():
         return jsonify({"error": str(e)}), 500
 
 
+def initialize_app():
+    """Initialize the application (load model on startup)."""
+    model_path = os.environ.get('MODEL_PATH')
+    try:
+        load_model(model_path)
+    except Exception as e:
+        print(f"Warning: Could not load model: {e}")
+        print("API will start but predictions will not be available.")
+
+
+# Auto-initialize when imported (for gunicorn with preload_app=True)
+# Skip if running directly with __main__
+_initialized = False
+
+
+@app.before_request
+def lazy_init():
+    """Lazy initialization on first request if not already initialized."""
+    global _initialized
+    if not _initialized:
+        initialize_app()
+        _initialized = True
+
+
 if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser(description="Run the parking prediction API")
     parser.add_argument('--model', type=str, help='Path to model directory')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to')
-    parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
+    parser.add_argument('--port', type=int, default=int(os.environ.get('PORT', 5000)), help='Port to bind to')
     parser.add_argument('--debug', action='store_true', help='Run in debug mode')
     
     args = parser.parse_args()
