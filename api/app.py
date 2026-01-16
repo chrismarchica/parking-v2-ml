@@ -28,7 +28,7 @@ data_loader: ParkingDataLoader = None
 
 def load_model(model_path: str = None):
     """Load the trained model."""
-    global model, pipeline, data_loader
+    global model
     
     if model_path is None:
         # Find the latest model
@@ -44,9 +44,20 @@ def load_model(model_path: str = None):
     
     print(f"Loading model from: {model_path}")
     model = ParkingTicketModel.load(model_path)
-    pipeline = FeaturePipeline()
-    data_loader = ParkingDataLoader()
     print("Model loaded successfully!")
+
+
+def init_data_loader():
+    """Initialize data loader and pipeline (independent of model)."""
+    global pipeline, data_loader
+    
+    if pipeline is None:
+        pipeline = FeaturePipeline()
+        print("Feature pipeline initialized!")
+    
+    if data_loader is None:
+        data_loader = ParkingDataLoader()
+        print("Data loader initialized!")
 
 
 @app.route('/health', methods=['GET'])
@@ -316,7 +327,15 @@ def model_info():
 
 
 def initialize_app():
-    """Initialize the application (load model on startup)."""
+    """Initialize the application (load model and data loader on startup)."""
+    # Always initialize data loader (needed for heatmap, stats, etc.)
+    try:
+        init_data_loader()
+    except Exception as e:
+        print(f"Warning: Could not initialize data loader: {e}")
+        print("Data endpoints will not be available.")
+    
+    # Try to load model (optional - predictions won't work without it)
     model_path = os.environ.get('MODEL_PATH')
     try:
         load_model(model_path)
@@ -350,12 +369,20 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
+    # Initialize data loader
+    try:
+        init_data_loader()
+    except Exception as e:
+        print(f"Warning: Could not initialize data loader: {e}")
+    
     # Load model
     try:
         load_model(args.model)
     except Exception as e:
         print(f"Warning: Could not load model: {e}")
         print("API will start but predictions will not be available.")
+    
+    _initialized = True
     
     # Run app
     app.run(host=args.host, port=args.port, debug=args.debug)
