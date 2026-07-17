@@ -19,6 +19,10 @@ model/*/model.pkl
 model/*/*.json
 model/*/*.pkl
 
+# ...except the production model, which is committed so git-triggered Cloud Build
+# can COPY it into the image (see Dockerfile). ~23 MB; well under GitHub limits.
+!model/20260114_003023/model.pkl
+
 # IDE
 .vscode/
 .idea/
