@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from training.train_xgb import ParkingTicketModel
 from features import FeaturePipeline
+from features.risk_features import build_features, dow_sunday0
 from data import ParkingDataLoader
 
 app = Flask(__name__)
@@ -39,8 +40,11 @@ def load_model(model_path: str = None):
         model_dirs = [d for d in model_dir.iterdir() if d.is_dir()]
         if not model_dirs:
             raise FileNotFoundError("No trained models found.")
-        
-        model_path = max(model_dirs, key=lambda p: p.name)
+
+        # Prefer the risk model (dirs named risk_*); fall back to newest overall.
+        risk_dirs = [d for d in model_dirs if d.name.startswith("risk_")]
+        candidates = risk_dirs or model_dirs
+        model_path = max(candidates, key=lambda p: p.name)
     
     print(f"Loading model from: {model_path}")
     model = ParkingTicketModel.load(model_path)
@@ -70,97 +74,88 @@ def health():
     })
 
 
-@app.route('/predict', methods=['POST'])
-def predict():
+def _risk_level(score: float) -> str:
+    if score >= 75:
+        return "Very High"
+    if score >= 50:
+        return "High"
+    if score >= 25:
+        return "Moderate"
+    return "Low"
+
+
+def _risk_factors(hour: int, dow: int, score: float) -> list:
+    """Human-readable drivers behind a risk score."""
+    factors = []
+    if 8 <= hour <= 11 and dow not in (0, 6):
+        factors.append("Weekday morning — prime street-cleaning hours")
+    if (7 <= hour <= 9) or (16 <= hour <= 19):
+        factors.append("Rush-hour enforcement")
+    if dow in (0, 6):
+        factors.append("Weekend — lighter enforcement")
+    if hour <= 5 or hour >= 22:
+        factors.append("Overnight — very little enforcement")
+    if score >= 60:
+        factors.append("High-activity ticketing area")
+    elif score <= 20:
+        factors.append("Low-activity area for this time")
+    return factors
+
+
+@app.route('/risk', methods=['POST'])
+def risk():
     """
-    Predict parking violation likelihood.
-    
+    Estimate parking-ticket RISK for a location and time.
+
     Request body:
     {
         "latitude": 40.7580,
         "longitude": -73.9855,
-        "datetime": "2024-01-15T14:30:00",  # optional, defaults to now
-        "precinct": "19",  # optional
-        "county": "NY"     # optional
+        "datetime": "2024-06-11T09:00:00"  # optional, defaults to now
     }
+
+    Returns a 0-100 relative risk score for the requested moment, plus the
+    risk across all 24 hours of that day for the same location.
     """
     if model is None:
         return jsonify({"error": "Model not loaded"}), 500
-    
+
     try:
-        data = request.json
-        
-        # Parse datetime
-        if "datetime" in data:
-            dt = pd.to_datetime(data["datetime"])
-        else:
-            dt = pd.Timestamp.now()
-        
-        # Build feature dict
-        features = {
-            "issue_date": dt,
-            "violation_time": dt.strftime("%I%M%p").lstrip("0"),
-            "latitude": data.get("latitude"),
-            "longitude": data.get("longitude"),
-            "precinct": data.get("precinct", "UNKNOWN"),
-            "county": data.get("county", "NY"),
-            "street_name": data.get("street_name", ""),
-            "issuing_agency": data.get("agency", "P"),
-            "plate_type": data.get("plate_type", "PAS"),
-            "fine_amount": 0,  # Not used for prediction
-            # violation_code is the prediction target, not a feature, so it is
-            # never supplied by the caller. The shared feature pipeline still
-            # references it (to build/clean training data), and clean_and_encode
-            # drops rows missing it. Supply a placeholder so the single inference
-            # row survives; it is excluded from the feature matrix and cannot
-            # affect the prediction.
-            "violation_code": "0",
-        }
-        
-        # Create DataFrame
-        df = pd.DataFrame([features])
-        
-        # Apply feature transformations
-        df = pipeline.add_temporal_features(df)
-        df = pipeline.add_location_features(df, has_coordinates=True)
-        df = pipeline.add_violation_features(df)
-        df = pipeline.clean_and_encode(df)
-        
-        # Prepare features for model
-        X, _ = pipeline.prepare_for_training(df, target="violation_code")
-        X_encoded = model.prepare_features(X)
-        
-        # Get predictions
-        pred_class = model.predict(X_encoded)[0]
-        pred_proba = model.predict_proba(X_encoded)[0]
-        
-        # Decode prediction
-        label_encoder = model.label_encoders["violation_code"]
-        predicted_code = label_encoder.inverse_transform([pred_class])[0]
-        
-        # Get top 5 predictions
-        top_5_idx = np.argsort(pred_proba)[-5:][::-1]
-        top_5_predictions = [
-            {
-                "violation_code": label_encoder.inverse_transform([idx])[0],
-                "probability": float(pred_proba[idx])
-            }
-            for idx in top_5_idx
-        ]
-        
-        return jsonify({
-            "predicted_violation": predicted_code,
-            "confidence": float(pred_proba[pred_class]),
-            "top_predictions": top_5_predictions,
-            "input": {
-                "latitude": features["latitude"],
-                "longitude": features["longitude"],
-                "datetime": dt.isoformat(),
-                "precinct": features["precinct"],
-                "county": features["county"]
-            }
+        data = request.json or {}
+        lat = float(data["latitude"])
+        lon = float(data["longitude"])
+        dt = pd.to_datetime(data["datetime"]) if data.get("datetime") else pd.Timestamp.now()
+        dow = dow_sunday0(dt)
+
+        # Score all 24 hours of this day at this location in one batch.
+        hours_df = pd.DataFrame({
+            "lat": [lat] * 24,
+            "lon": [lon] * 24,
+            "hour": list(range(24)),
+            "dow": [dow] * 24,
         })
-        
+        X = build_features(hours_df).values
+        proba = model.predict_proba(X)[:, 1]
+        hourly = [{"hour": h, "risk": round(float(proba[h]) * 100, 1)} for h in range(24)]
+
+        score = round(float(proba[dt.hour]) * 100, 1)
+
+        return jsonify({
+            "risk_score": score,
+            "level": _risk_level(score),
+            "factors": _risk_factors(dt.hour, dow, score),
+            "hourly": hourly,
+            "input": {
+                "latitude": lat,
+                "longitude": lon,
+                "datetime": dt.isoformat(),
+                "hour": dt.hour,
+                "day_of_week": dow,
+            },
+        })
+
+    except (KeyError, TypeError, ValueError) as e:
+        return jsonify({"error": f"Invalid request: {e}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
