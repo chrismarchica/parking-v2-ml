@@ -37,9 +37,18 @@ class FeaturePipeline:
         Initialize the feature pipeline.
 
         Args:
-            data_loader: ParkingDataLoader instance. Creates new one if None.
+            data_loader: ParkingDataLoader instance. Only needed for
+                load_and_transform() (training data loading). Created lazily so
+                the feature transforms can run for inference with no database.
         """
-        self.data_loader = data_loader or ParkingDataLoader()
+        self._data_loader = data_loader
+
+    @property
+    def data_loader(self) -> ParkingDataLoader:
+        """Lazily create a ParkingDataLoader on first access (needs DB config)."""
+        if self._data_loader is None:
+            self._data_loader = ParkingDataLoader()
+        return self._data_loader
 
     def load_and_transform(
         self,

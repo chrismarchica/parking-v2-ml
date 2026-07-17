@@ -108,6 +108,13 @@ def predict():
             "issuing_agency": data.get("agency", "P"),
             "plate_type": data.get("plate_type", "PAS"),
             "fine_amount": 0,  # Not used for prediction
+            # violation_code is the prediction target, not a feature, so it is
+            # never supplied by the caller. The shared feature pipeline still
+            # references it (to build/clean training data), and clean_and_encode
+            # drops rows missing it. Supply a placeholder so the single inference
+            # row survives; it is excluded from the feature matrix and cannot
+            # affect the prediction.
+            "violation_code": "0",
         }
         
         # Create DataFrame

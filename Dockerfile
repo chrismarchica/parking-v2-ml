@@ -30,8 +30,9 @@ COPY features/ ./features/
 COPY training/ ./training/
 COPY gunicorn.conf.py .
 
-# Create empty model directory (load model from GCS or mount at runtime)
-RUN mkdir -p ./model
+# Bake the trained model into the image so predictions work with no external
+# storage or database. load_model() auto-selects the newest model dir by name.
+COPY model/ ./model/
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser && \
